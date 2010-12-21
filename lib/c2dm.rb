@@ -34,7 +34,7 @@ module C2DM
     # Construct the html parameter, value string from the give map object
     def self.get_data_string(map)
       data = ''
-      key_value_pairs.keys.each do |k|
+      map.keys.each do |k|
         data = "#{data}&data.#{k.to_s}=#{CGI::escape(map[k].to_s)}"
       end
       
