@@ -1,4 +1,5 @@
 require 'httparty'
+require "c2dm_logger.rb"
 
 module NotificationHelper
   include HTTParty
@@ -20,7 +21,7 @@ module NotificationHelper
         :http_status_code => raw_response.response
     }
 
-    C2dmLogger.log.debug "push_and_get_response [#{result}]"
+    C2DM::C2dmLogger.log.debug "push_and_get_response [#{result}]"
     result
   end
 
@@ -30,14 +31,5 @@ module NotificationHelper
         :is_error => response.include?(ERROR_STRING), # does this response indicate a error?
         :description => response.gsub(ERROR_STRING, "")
     }
-  end
-
-  def manage_counts counts, response
-    if response[:response][:is_error]
-      counts[:error_count] = counts[:error_count] + 1
-    else
-      counts[:success_count] = counts[:success_count] + 1
-    end
-    C2dmLogger.log.debug "Counts updated [#{counts}]"
   end
 end
