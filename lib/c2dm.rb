@@ -2,6 +2,7 @@ require 'httparty'
 require 'cgi'
 require "notification_helper.rb"
 require "c2dm_logger.rb"
+require "quota_exceeded_exception.rb"
 require "ap"
 
 module C2DM
@@ -58,6 +59,8 @@ module C2DM
       C2DM::C2dmLogger.log.debug "Counts updated [#{counts}]"
     end
 
+    QUOTA_EXCEEDED_RETRY_INTERVAL = 5 # in seconds
+
     # Send C2DM notifications with a set of other parameters and values, as given in the map.
     # The notifications array should consists of map objects like:
     # {:registration_id => "x", :key_value_pairs => { :key_one => "value_one", :key_two => "value_two" }}
@@ -72,7 +75,9 @@ module C2DM
           :error_count => 0,
           :exception_count => 0,
           :timeout_count_consecative => 0,
-          :timeout_count => 0
+          :timeout_count => 0,
+          :quota_exceeded_count => 0,
+          :quota_exceeded_count_consecative => 0
       }
 
       test_ex_raised = false
@@ -81,18 +86,24 @@ module C2DM
           c2dm = Push.new(username, password, source)
           C2DM::C2dmLogger.log.debug "send_notification_with_kv_map start sending notifications [start_point:#{start_point}, total # of notifications:#{notifications.size}]"
           for i in start_point..notifications.size-1
-            start_point = i # update start point, so if something goes wrong when sending this notification, we can
-            # restart from this
+            start_point = i # update start point, so if something goes wrong when sending this notification, we can restart from this
             notification = notifications[i]
             C2DM::C2dmLogger.log.debug "Sending notification [position:#{i}, notification:#{notification}]"
-            if rand(10) > 5 #&& !test_ex_raised
-              test_ex_raised = true
-              #raise Exception.new
-              raise Timeout::Error
-            end
+#            if rand(10) > 5 #&& !test_ex_raised
+#              test_ex_raised = true
+#              #raise Exception.new
+#              raise Timeout::Error
+#            end
             response = c2dm.send_notification_with_kv_map(notification[:registration_id], notification[:key_value_pairs])
-            clear_timeout_error_count counts
+#            if rand(10) > 5
+#              response[:response][:is_error] = true
+#              response[:response][:description] = "QuotaExceeded"
+#            end
+            clear_consecative_error_count counts, response
             if response[:response][:is_error]
+              if response[:response][:description] == "QuotaExceeded"
+                raise C2DM::QuotaExceededException.new
+              end
               responses << {
                   :description => response[:response][:description],
                   :http_status_code => response[:http_status_code],
@@ -106,6 +117,16 @@ module C2DM
 
           C2DM::C2dmLogger.log.debug "Reached the end of notification sending cycle."
           break # everything seems to have worked out fine. break!
+        rescue C2DM::QuotaExceededException => qe_ex
+          exceptions << qe_ex.to_s
+          counts[:quota_exceeded_count] = counts[:quota_exceeded_count] +1
+          counts[:quota_exceeded_count_consecative] = counts[:quota_exceeded_count_consecative] +1
+          C2DM::C2dmLogger.log.warn "C2DM::QuotaExceededException retrying after #{QUOTA_EXCEEDED_RETRY_INTERVAL} seconds [count:#{counts[:quota_exceeded_count_consecative]}, exception:#{qe_ex}]"
+          sleep QUOTA_EXCEEDED_RETRY_INTERVAL
+          if counts[:quota_exceeded_count_consecative] == 4 # max retries = 3, so break if this is the 4th time
+            C2DM::C2dmLogger.log.fatal "FATAL C2DM::QuotaExceededException, giving up [count:#{counts[:quota_exceeded_count_consecative]}, exception:#{qe_ex}]"
+            break
+          end
         rescue Timeout::Error => timeout_ex
           exceptions << timeout_ex.to_s
           counts[:timeout_count] = counts[:timeout_count] +1
@@ -133,11 +154,12 @@ module C2DM
       result
     end
 
-    # clear timeout error count
+    # clear consecative error counts
     # this method is called after ever successful notification push
-    # this insures that we will only give up after 4 CONSECATIVE timeouts
-    def self.clear_timeout_error_count(counts)
+    # this insures that we will only give up after 4 CONSECATIVE errors
+    def self.clear_consecative_error_count(counts, response)
       counts[:timeout_count_consecative] = 0
+      counts[:quota_exceeded_count_consecative] = 0 unless response[:response][:description] == "QuotaExceeded"
     end
 
     # Send a batch of notifications
