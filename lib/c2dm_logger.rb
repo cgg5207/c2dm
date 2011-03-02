@@ -1,6 +1,7 @@
 module C2DM
   class C2dmLogger
     require 'logger'
+    require "ap"
 
     APP_NAME = "c2dm_lib"
     LOGGER_INSTANCE = Logger.new(STDOUT)
@@ -12,7 +13,7 @@ module C2DM
     end
 
     def method_missing(m, *args, &block)
-	    LOGGER_INSTANCE.send(m, APP_NAME) {args[0]}
+	    LOGGER_INSTANCE.send(m, APP_NAME) {ap(args[0])}
 	  end
   end
 end
