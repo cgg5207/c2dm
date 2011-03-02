@@ -71,6 +71,7 @@ module C2DM
           :success_count => 0,
           :error_count => 0,
           :exception_count => 0,
+          :timeout_count_consecative => 0,
           :timeout_count => 0
       }
 
@@ -84,7 +85,7 @@ module C2DM
             # restart from this
             notification = notifications[i]
             C2DM::C2dmLogger.log.debug "Sending notification [position:#{i}, notification:#{notification}]"
-            if rand(10) > 7 && !test_ex_raised
+            if rand(10) > 5 #&& !test_ex_raised
               test_ex_raised = true
               #raise Exception.new
               raise Timeout::Error
@@ -108,9 +109,10 @@ module C2DM
         rescue Timeout::Error => timeout_ex
           exceptions << timeout_ex.to_s
           counts[:timeout_count] = counts[:timeout_count] +1
-          C2DM::C2dmLogger.log.warn "Timeout::Error retrying [count:#{counts[:timeout_count]}, exception:#{timeout_ex}]"
-          if counts[:timeout_count] == 4 # max retries = 3, so break if this is the 4th time
-            C2DM::C2dmLogger.log.fatal "FATAL Timeout::Error, giving up [count:#{counts[:timeout_count]}, exception:#{timeout_ex}]"
+          counts[:timeout_count_consecative] = counts[:timeout_count_consecative] +1
+          C2DM::C2dmLogger.log.warn "Timeout::Error retrying [count:#{counts[:timeout_count_consecative]}, exception:#{timeout_ex}]"
+          if counts[:timeout_count_consecative] == 4 # max retries = 3, so break if this is the 4th time
+            C2DM::C2dmLogger.log.fatal "FATAL Timeout::Error, giving up [count:#{counts[:timeout_count_consecative]}, exception:#{timeout_ex}]"
             break
           end
         rescue Exception => ex
@@ -135,7 +137,7 @@ module C2DM
     # this method is called after ever successful notification push
     # this insures that we will only give up after 4 CONSECATIVE timeouts
     def self.clear_timeout_error_count(counts)
-      counts[:timeout_count] = 0
+      counts[:timeout_count_consecative] = 0
     end
 
     # Send a batch of notifications
