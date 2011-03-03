@@ -1,5 +1,6 @@
 require 'httparty'
 require "c2dm_logger.rb"
+require "ap"
 
 module NotificationHelper
   include HTTParty
@@ -15,13 +16,13 @@ module NotificationHelper
     data
   end
 
-  def push_and_get_response raw_response
+  def parse_push_response raw_response
     result = {
         :response => parse_response(raw_response.parsed_response), # the string ex:- Error=NotRegistered
         :http_status_code => raw_response.response
     }
 
-    C2DM::C2dmLogger.log.debug "push_and_get_response [#{result}]"
+    C2DM::C2dmLogger.log.debug "parse_response [#{result}]"
     result
   end
 

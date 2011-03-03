@@ -31,23 +31,23 @@ module C2DM
       C2DM::C2dmLogger.log.debug "Received auth_token [#{@auth_token}]"
     end
 
-    def send_notification(registration_id, message)
-      C2DM::C2dmLogger.log.debug "Start: send_notification with [#{registration_id}, #{message}]"
-      post_body = "registration_id=#{registration_id}&collapse_key=foobar&data.message=#{CGI::escape(message)}"
-      params = {:body => post_body,
-                :headers => {'Authorization' => "GoogleLogin auth=#{@auth_token}"}}
-
-      push_and_get_response Push.post(PUSH_URL, params)
-    end
-
     # Send a C2DM notification with a set of other parameters and values, as given in the map
-    def send_notification_with_kv_map(registration_id, map)
-      C2DM::C2dmLogger.log.debug "Start: send_notification_with_kv_map with [#{registration_id}, #{map}]"
-      post_body = "registration_id=#{registration_id}&collapse_key=foobar&#{get_data_string(map)}"
-      params = {:body => post_body,
-                :headers => {'Authorization' => "GoogleLogin auth=#{@auth_token}"}}
-
-      push_and_get_response Push.post(PUSH_URL, params)
+    def send_notification_with_kv_map(registration_id, map, handle_exceptions=true)
+      begin
+        C2DM::C2dmLogger.log.debug "Start: send_notification_with_kv_map with [#{registration_id}, #{map}]"
+        post_body = "registration_id=#{registration_id}&collapse_key=foobar&#{get_data_string(map)}"
+        params = {:body => post_body,
+                  :headers => {'Authorization' => "GoogleLogin auth=#{@auth_token}"}}
+        #raise Timeout::Error.new if(rand(10) > 5)
+        return parse_push_response Push.post(PUSH_URL, params)
+      rescue Exception => ex
+        if handle_exceptions
+          C2DM::C2dmLogger.log.fatal result="Exception in send_notification_wiht_kv_map [exception: #{ex}]"
+          result
+        else
+          raise ex
+        end
+      end
     end
 
     def self.manage_counts counts, response
@@ -94,7 +94,11 @@ module C2DM
 #              raise Exception.new
 #              #raise Timeout::Error
 #            end
-            response = c2dm.send_notification_with_kv_map(notification[:registration_id], notification[:key_value_pairs])
+            response = c2dm.send_notification_with_kv_map(
+                notification[:registration_id],
+                notification[:key_value_pairs],
+                false
+            )
 #            if rand(10) > 5
 #              response[:response][:is_error] = true
 #              response[:response][:description] = "QuotaExceeded"
@@ -168,6 +172,7 @@ module C2DM
     def self.process_response position, response, notification, responses
       C2DM::C2dmLogger.log.debug "Sending notification result [position:#{position}, notification:#{notification}, result:#{response}]"
       if response[:response][:is_error]
+        C2DM::C2dmLogger.log.warn "Sending notification result contains error [position:#{position}, notification:#{notification}, result:#{response}]"
         check_for_and_raise_quota_exceeded_exception response
         responses << {
             :description => response[:response][:description],
@@ -190,20 +195,9 @@ module C2DM
     # this method is called after ever successful notification push
     # this insures that we will only give up after 4 CONSECATIVE errors
     def self.clear_consecative_error_counts(counts, response)
+      C2DM::C2dmLogger.log.debug "clear_consecative_error_counts [counts: #{counts} response: #{response}]"
       counts[:timeout_count_consecative] = 0
       counts[:quota_exceeded_count_consecative] = 0 unless response[:response][:description] == C2DM_QUOTA_EXCEEDED_ERROR_MESSAGE_DESCRIPTION
     end
-
-    # Send a batch of notifications
-    def self.send_notifications(username, password, source, notifications)
-      c2dm = Push.new(username, password, source)
-
-      responses = []
-      notifications.each do |notification|
-        responses << {:body => c2dm.send_notification(notification[:registration_id], notification[:message]), :registration_id => notification[:registration_id]}
-      end
-      responses
-    end
-
   end
 end
