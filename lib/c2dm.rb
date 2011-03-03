@@ -91,56 +91,27 @@ module C2DM
             C2DM::C2dmLogger.log.debug "Sending notification [position:#{i}, notification:#{notification}]"
 #            if rand(10) > 5 #&& !test_ex_raised
 #              test_ex_raised = true
-#              #raise Exception.new
-#              raise Timeout::Error
+#              raise Exception.new
+#              #raise Timeout::Error
 #            end
             response = c2dm.send_notification_with_kv_map(notification[:registration_id], notification[:key_value_pairs])
 #            if rand(10) > 5
 #              response[:response][:is_error] = true
 #              response[:response][:description] = "QuotaExceeded"
 #            end
-            clear_consecative_error_count counts, response
-            if response[:response][:is_error]
-              if response[:response][:description] == "QuotaExceeded"
-                raise C2DM::QuotaExceededException.new
-              end
-              responses << {
-                  :description => response[:response][:description],
-                  :http_status_code => response[:http_status_code],
-                  :registration_id => notification[:registration_id],
-                  :key_value_pairs => notification[:key_value_pairs]
-              }
-            end
-            C2DM::C2dmLogger.log.debug "Sending notification result [position:#{i}, notification:#{notification}, result:#{response}]"
+            clear_consecative_error_counts counts, response
+            process_response i, response, notification, responses
             manage_counts(counts, response)
           end
 
           C2DM::C2dmLogger.log.debug "Reached the end of notification sending cycle."
           break # everything seems to have worked out fine. break!
-        rescue C2DM::QuotaExceededException => qe_ex
-          exceptions << qe_ex.to_s
-          counts[:quota_exceeded_count] = counts[:quota_exceeded_count] +1
-          counts[:quota_exceeded_count_consecative] = counts[:quota_exceeded_count_consecative] +1
-          C2DM::C2dmLogger.log.warn "C2DM::QuotaExceededException retrying after #{QUOTA_EXCEEDED_RETRY_INTERVAL} seconds [count:#{counts[:quota_exceeded_count_consecative]}, exception:#{qe_ex}]"
-          sleep QUOTA_EXCEEDED_RETRY_INTERVAL
-          if counts[:quota_exceeded_count_consecative] == 4 # max retries = 3, so break if this is the 4th time
-            C2DM::C2dmLogger.log.fatal "FATAL C2DM::QuotaExceededException, giving up [count:#{counts[:quota_exceeded_count_consecative]}, exception:#{qe_ex}]"
-            break
-          end
-        rescue Timeout::Error => timeout_ex
-          exceptions << timeout_ex.to_s
-          counts[:timeout_count] = counts[:timeout_count] +1
-          counts[:timeout_count_consecative] = counts[:timeout_count_consecative] +1
-          C2DM::C2dmLogger.log.warn "Timeout::Error retrying [count:#{counts[:timeout_count_consecative]}, exception:#{timeout_ex}]"
-          if counts[:timeout_count_consecative] == 4 # max retries = 3, so break if this is the 4th time
-            C2DM::C2dmLogger.log.fatal "FATAL Timeout::Error, giving up [count:#{counts[:timeout_count_consecative]}, exception:#{timeout_ex}]"
-            break
-          end
+        rescue C2DM::QuotaExceededException => ex
+          break unless handle_quota_exceeded_exception ex, exceptions, counts
+        rescue Timeout::Error => ex
+          break unless handle_timeout_exception ex, exceptions, counts
         rescue Exception => ex
-          exceptions << ex.to_s
-          counts[:exception_count] = counts[:exception_count] +1
-          C2DM::C2dmLogger.log.fatal "FATAL Unhandled Exception, giving up [exception:#{ex}]"
-          break
+          break unless handle_exception ex, exceptions, counts
         end
       end
 
@@ -154,12 +125,73 @@ module C2DM
       result
     end
 
+    # Handle a Timeout Exception, return true if successfully handled, false if not.
+    # right now we always return false
+    def self.handle_exception ex, exceptions, counts
+      exceptions << ex.to_s
+      counts[:exception_count] = counts[:exception_count] +1
+      C2DM::C2dmLogger.log.fatal "FATAL Unhandled Exception, giving up [exception:#{ex}]"
+      false
+    end
+
+    # Handle a Timeout Exception, return true if successfully handled, false if not.
+    def self.handle_timeout_exception ex, exceptions, counts
+      exceptions << ex.to_s
+      counts[:timeout_count] = counts[:timeout_count] +1
+      counts[:timeout_count_consecative] = counts[:timeout_count_consecative] +1
+      C2DM::C2dmLogger.log.warn "Timeout::Error retrying [count:#{counts[:timeout_count_consecative]}, exception:#{ex}]"
+      if counts[:timeout_count_consecative] == 4 # max retries = 3, so break if this is the 4th time
+        C2DM::C2dmLogger.log.fatal "FATAL Timeout::Error, giving up [count:#{counts[:timeout_count_consecative]}, exception:#{ex}]"
+        return false
+      end
+      true
+    end
+
+    # Handle a Quota Exceeded Exception, return true if successfully handled, false if not.
+    def self.handle_quota_exceeded_exception ex, exceptions, counts
+      exceptions << ex.to_s
+      counts[:quota_exceeded_count] = counts[:quota_exceeded_count] +1
+      counts[:quota_exceeded_count_consecative] = counts[:quota_exceeded_count_consecative] +1
+
+      C2DM::C2dmLogger.log.warn "C2DM::QuotaExceededException retrying after #{QUOTA_EXCEEDED_RETRY_INTERVAL} seconds [count:#{counts[:quota_exceeded_count_consecative]}, exception:#{ex}]"
+
+      sleep QUOTA_EXCEEDED_RETRY_INTERVAL
+      if counts[:quota_exceeded_count_consecative] == 4 # max retries = 3, so break if this is the 4th time
+        C2DM::C2dmLogger.log.fatal "FATAL C2DM::QuotaExceededException, giving up [count:#{counts[:quota_exceeded_count_consecative]}, exception:#{ex}]"
+        return false
+      end
+      true
+    end
+
+    # Process the response received from the C2DM within the context of batch notification sending, and prepare
+    # final the return value (responses)
+    def self.process_response position, response, notification, responses
+      C2DM::C2dmLogger.log.debug "Sending notification result [position:#{position}, notification:#{notification}, result:#{response}]"
+      if response[:response][:is_error]
+        check_for_and_raise_quota_exceeded_exception response
+        responses << {
+            :description => response[:response][:description],
+            :http_status_code => response[:http_status_code],
+            :registration_id => notification[:registration_id],
+            :key_value_pairs => notification[:key_value_pairs]
+        }
+      end
+    end
+
+    C2DM_QUOTA_EXCEEDED_ERROR_MESSAGE_DESCRIPTION = "QuotaExceeded"
+    # Check for the QuotaExceeded error from the C2DM and raise an exception
+    def self.check_for_and_raise_quota_exceeded_exception response
+      if response[:response][:description] == C2DM_QUOTA_EXCEEDED_ERROR_MESSAGE_DESCRIPTION
+        raise C2DM::QuotaExceededException.new
+      end
+    end
+
     # clear consecative error counts
     # this method is called after ever successful notification push
     # this insures that we will only give up after 4 CONSECATIVE errors
-    def self.clear_consecative_error_count(counts, response)
+    def self.clear_consecative_error_counts(counts, response)
       counts[:timeout_count_consecative] = 0
-      counts[:quota_exceeded_count_consecative] = 0 unless response[:response][:description] == "QuotaExceeded"
+      counts[:quota_exceeded_count_consecative] = 0 unless response[:response][:description] == C2DM_QUOTA_EXCEEDED_ERROR_MESSAGE_DESCRIPTION
     end
 
     # Send a batch of notifications
