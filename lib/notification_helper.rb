@@ -16,10 +16,10 @@ module NotificationHelper
     data
   end
 
-  def parse_push_response raw_response
+  def parse_push_response httparty_response
     result = {
-        :response => parse_response(raw_response.parsed_response), # the string ex:- Error=NotRegistered
-        :http_status_code => raw_response.response
+        :response => parse_response(httparty_response), # the string ex:- Error=NotRegistered
+        :http_status_code => httparty_response.response
     }
 
     C2DM::C2dmLogger.log.debug "parse_response [#{result}]"
@@ -27,10 +27,21 @@ module NotificationHelper
   end
 
   ERROR_STRING = "Error="
-  def parse_response response
+
+  def parse_response httparty_response
     {
-        :is_error => response.include?(ERROR_STRING), # does this response indicate a error?
-        :description => response.gsub(ERROR_STRING, "")
+        :is_error => is_error=is_error?(httparty_response),
+        :description => if is_error
+                          httparty_response.parsed_response.gsub(ERROR_STRING, "")
+                        else
+                          httparty_response.parsed_response
+                        end
     }
+  end
+
+  # Check and identify a whether this response contains a error
+  # make sure the status is 200 and the string does not contain the defined error string
+  def is_error? raw_response
+    raw_response.response.class != Net::HTTPOK || raw_response.parsed_response.include?(ERROR_STRING)
   end
 end
