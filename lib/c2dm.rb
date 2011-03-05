@@ -42,7 +42,7 @@ module C2DM
         return parse_push_response Push.post(PUSH_URL, params)
       rescue Exception => ex
         if handle_exceptions
-          C2DM::C2dmLogger.log.fatal result="Exception in send_notification_wiht_kv_map [exception: #{ex}]"
+          C2DM::C2dmLogger.log.fatal result="Exception in send_notification_wiht_kv_map [exception: #{ex} backtrace: #{ex.backtrace}]"
           ap ex.backtrace
           result
         else
@@ -133,21 +133,21 @@ module C2DM
     # Handle a Timeout Exception, return true if successfully handled, false if not.
     # right now we always return false
     def self.handle_exception ex, exceptions, counts
-      exceptions << ex.to_s
+      log_exception ex, exceptions
       counts[:exception_count] = counts[:exception_count] +1
-      C2DM::C2dmLogger.log.fatal "FATAL Unhandled Exception, giving up [exception:#{ex}]"
+      C2DM::C2dmLogger.log.fatal "FATAL Unhandled Exception, giving up [exception:#{ex} backtrace: #{ex.backtrace}]"
       false
     end
 
     MAX_RETRIES_FOR_TIMEOUT_EX = 4
     # Handle a Timeout Exception, return true if successfully handled, false if not.
     def self.handle_timeout_exception ex, exceptions, counts
-      exceptions << ex.to_s
+      log_exception ex, exceptions
       counts[:timeout_count] = counts[:timeout_count] +1
       counts[:timeout_count_consecative] = counts[:timeout_count_consecative] +1
-      C2DM::C2dmLogger.log.warn "Timeout::Error retrying [count:#{counts[:timeout_count_consecative]}, exception:#{ex}]"
-      if counts[:timeout_count_consecative] == MAX_RETRIES_TIMEOUT_EX + 1 # max retries = X, so break if this is the 4th time
-        C2DM::C2dmLogger.log.fatal "FATAL Timeout::Error, giving up [count:#{counts[:timeout_count_consecative]}, exception:#{ex}]"
+      C2DM::C2dmLogger.log.warn "Timeout::Error retrying [count:#{counts[:timeout_count_consecative]}, exception:#{ex} backtrace: #{ex.backtrace}]"
+      if counts[:timeout_count_consecative] == MAX_RETRIES_FOR_TIMEOUT_EX + 1 # max retries = X, so break if this is the 4th time
+        C2DM::C2dmLogger.log.fatal "FATAL Timeout::Error, giving up [count:#{counts[:timeout_count_consecative]}, exception:#{ex} backtrace: #{ex.backtrace}]"
         return false
       end
       true
@@ -156,15 +156,15 @@ module C2DM
     MAX_RETRIES_FOR_QUOTA_EXCEEDED_EX = 4
     # Handle a Quota Exceeded Exception, return true if successfully handled, false if not.
     def self.handle_quota_exceeded_exception ex, exceptions, counts
-      exceptions << ex.to_s
+      log_exception ex, exceptions
       counts[:quota_exceeded_count] = counts[:quota_exceeded_count] +1
       counts[:quota_exceeded_count_consecative] = counts[:quota_exceeded_count_consecative] +1
 
-      C2DM::C2dmLogger.log.warn "C2DM::QuotaExceededException retrying after #{QUOTA_EXCEEDED_RETRY_INTERVAL} seconds [count:#{counts[:quota_exceeded_count_consecative]}, exception:#{ex}]"
+      C2DM::C2dmLogger.log.warn "C2DM::QuotaExceededException retrying after #{QUOTA_EXCEEDED_RETRY_INTERVAL} seconds [count:#{counts[:quota_exceeded_count_consecative]}, exception:#{ex} backtrace: #{ex.backtrace}]"
 
       sleep QUOTA_EXCEEDED_RETRY_INTERVAL
       if counts[:quota_exceeded_count_consecative] == MAX_RETRIES_FOR_QUOTA_EXCEEDED_EX + 1 # max retries = X, so break if this is the 4th time
-        C2DM::C2dmLogger.log.fatal "FATAL C2DM::QuotaExceededException, giving up [count:#{counts[:quota_exceeded_count_consecative]}, exception:#{ex}]"
+        C2DM::C2dmLogger.log.fatal "FATAL C2DM::QuotaExceededException, giving up [count:#{counts[:quota_exceeded_count_consecative]}, exception:#{ex} backtrace: #{ex.backtrace}]"
         return false
       end
       true
@@ -201,6 +201,10 @@ module C2DM
       C2DM::C2dmLogger.log.debug "clear_consecative_error_counts [counts: #{counts} response: #{response}]"
       counts[:timeout_count_consecative] = 0
       counts[:quota_exceeded_count_consecative] = 0 unless response[:response][:description] == C2DM_QUOTA_EXCEEDED_ERROR_MESSAGE_DESCRIPTION
+    end
+
+    def self.log_exception ex, ex_collection
+      ex_collection << [:meg => ex.to_s, :trace => ex.backtrace]
     end
   end
 end
