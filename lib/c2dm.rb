@@ -6,6 +6,7 @@ require "quota_exceeded_exception.rb"
 require "ap"
 
 module C2DM
+  # Main class with all notification sending methods.
   class Push
     include HTTParty
     default_timeout 30
@@ -17,6 +18,9 @@ module C2DM
     AUTH_URL = 'https://www.google.com/accounts/ClientLogin'
     PUSH_URL = 'https://android.apis.google.com/c2dm/send'
 
+    # Initialize a instance of Push, and obtain a auth token and remember it to be used later.
+    # this method can throw a exception as it does not handle exceptions. Hence where ever this is used
+    # you handle any exception thrown
     def initialize(username, password, source)
       C2DM::C2dmLogger.log.debug "Start: initialize Push with [#{username}, #{source}]"
       post_body = "accountType=HOSTED_OR_GOOGLE&Email=#{username}&Passwd=#{password}&service=ac2dm&source=#{source}"
@@ -38,12 +42,10 @@ module C2DM
         post_body = "registration_id=#{registration_id}&collapse_key=foobar&#{get_data_string(map)}"
         params = {:body => post_body,
                   :headers => {'Authorization' => "GoogleLogin auth=#{@auth_token}"}}
-        #raise Timeout::Error.new if(rand(10) > 5)
         return parse_push_response Push.post(PUSH_URL, params)
       rescue Exception => ex
         if handle_exceptions
           C2DM::C2dmLogger.log.fatal result="Exception in send_notification_wiht_kv_map [exception: #{ex} backtrace: #{ex.backtrace}]"
-          ap ex.backtrace
           result
         else
           raise ex
@@ -51,6 +53,7 @@ module C2DM
       end
     end
 
+    # maintain the error and success counts
     def self.manage_counts counts, response
       if response[:response][:is_error]
         counts[:error_count] = counts[:error_count] + 1
@@ -81,7 +84,6 @@ module C2DM
           :quota_exceeded_count_consecative => 0
       }
 
-      test_ex_raised = false
       while true do
         begin
           c2dm = Push.new(username, password, source)
@@ -90,20 +92,11 @@ module C2DM
             start_point = i # update start point, so if something goes wrong when sending this notification, we can restart from this
             notification = notifications[i]
             C2DM::C2dmLogger.log.debug "Sending notification [position:#{i}, notification:#{notification}]"
-#            if rand(10) > 5 #&& !test_ex_raised
-#              test_ex_raised = true
-#              raise Exception.new
-#              #raise Timeout::Error
-#            end
             response = c2dm.send_notification_with_kv_map(
                 notification[:registration_id],
                 notification[:key_value_pairs],
                 false
             )
-#            if rand(10) > 5
-#              response[:response][:is_error] = true
-#              response[:response][:description] = "QuotaExceeded"
-#            end
             clear_consecative_error_counts counts, response
             process_response i, response, notification, responses
             manage_counts(counts, response)
@@ -195,14 +188,15 @@ module C2DM
     end
 
     # clear consecative error counts
-    # this method is called after ever successful notification push
-    # this insures that we will only give up after 4 CONSECATIVE errors
+    # this method is called after every successful notification push
+    # this insures that we will only give up after X CONSECATIVE errors
     def self.clear_consecative_error_counts(counts, response)
       C2DM::C2dmLogger.log.debug "clear_consecative_error_counts [counts: #{counts} response: #{response}]"
       counts[:timeout_count_consecative] = 0
       counts[:quota_exceeded_count_consecative] = 0 unless response[:response][:description] == C2DM_QUOTA_EXCEEDED_ERROR_MESSAGE_DESCRIPTION
     end
 
+    # log a exception in a useful way
     def self.log_exception ex, ex_collection
       ex_collection << [:meg => ex.to_s, :trace => ex.backtrace]
     end
