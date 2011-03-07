@@ -27,7 +27,6 @@ module NotificationHelper
   end
 
   ERROR_STRING = "Error="
-
   def parse_response httparty_response
     {
         :is_error => is_error=is_error?(httparty_response),
