@@ -156,7 +156,7 @@ module C2DM
       C2DM::C2dmLogger.log.warn "C2DM::QuotaExceededException retrying after #{QUOTA_EXCEEDED_RETRY_INTERVAL} seconds [count:#{counts[:quota_exceeded_count_consecative]}, exception:#{ex} backtrace: #{ex.backtrace}]"
 
       sleep QUOTA_EXCEEDED_RETRY_INTERVAL
-      if counts[:quota_exceeded_count_consecative] == MAX_RETRIES_FOR_QUOTA_EXCEEDED_EX + 1 # max retries = X, so break if this is the 4th time
+      if counts[:quota_exceeded_count_consecative] == MAX_RETRIES_FOR_QUOTA_EXCEEDED_EX + 1 # max retries = X, so break if this is the (X+1)th time
         C2DM::C2dmLogger.log.fatal "FATAL C2DM::QuotaExceededException, giving up [count:#{counts[:quota_exceeded_count_consecative]}, exception:#{ex} backtrace: #{ex.backtrace}]"
         return false
       end
