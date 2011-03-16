@@ -30,22 +30,27 @@ module C2DM
 
       response = Push.post(AUTH_URL, params)
       C2DM::C2dmLogger.log.debug "Received response [#{response}]"
-      response_split = response.body.split("\n")
-      @auth_token = response_split[2].gsub("Auth=", "")
+      @auth_token = C2DM::Push.extract_authentication_token response
       C2DM::C2dmLogger.log.debug "Received auth_token [#{@auth_token}]"
+    end
+
+    # Extract the authentication token from the response received from the C2DM server
+    def self.extract_authentication_token httparty_response
+      response_split = httparty_response.body.split("\n")
+      response_split[2].gsub("Auth=", "")
     end
 
     # Send a C2DM notification with a set of other parameters and values, as given in the map
     def send_notification_with_kv_map(registration_id, map, handle_exceptions=true)
       begin
         C2DM::C2dmLogger.log.debug "Start: send_notification_with_kv_map with [#{registration_id}, #{map}]"
-        post_body = "registration_id=#{registration_id}&collapse_key=foobar&#{get_data_string(map)}"
+        post_body = "registration_id=#{registration_id}&collapse_key=foobar&#{self.get_data_string(map)}"
         params = {:body => post_body,
                   :headers => {'Authorization' => "GoogleLogin auth=#{@auth_token}"}}
         return parse_push_response Push.post(PUSH_URL, params)
       rescue Exception => ex
         if handle_exceptions
-          C2DM::C2dmLogger.log.fatal result="Exception in send_notification_wiht_kv_map [exception: #{ex} backtrace: #{ex.backtrace}]"
+          C2DM::C2dmLogger.log.fatal result="Exception in send_notification_with_kv_map [exception: #{ex} backtrace: #{ex.backtrace}]"
           result
         else
           raise ex
@@ -119,7 +124,7 @@ module C2DM
           :exceptions => exceptions
       }
       C2DM::C2dmLogger.log.debug "send_notification_with_kv_map done. [#{result}]"
-      ap result
+      #ap result
       result
     end
 
@@ -155,11 +160,11 @@ module C2DM
 
       C2DM::C2dmLogger.log.warn "C2DM::QuotaExceededException retrying after #{QUOTA_EXCEEDED_RETRY_INTERVAL} seconds [count:#{counts[:quota_exceeded_count_consecative]}, exception:#{ex} backtrace: #{ex.backtrace}]"
 
-      sleep QUOTA_EXCEEDED_RETRY_INTERVAL
       if counts[:quota_exceeded_count_consecative] == MAX_RETRIES_FOR_QUOTA_EXCEEDED_EX + 1 # max retries = X, so break if this is the (X+1)th time
         C2DM::C2dmLogger.log.fatal "FATAL C2DM::QuotaExceededException, giving up [count:#{counts[:quota_exceeded_count_consecative]}, exception:#{ex} backtrace: #{ex.backtrace}]"
         return false
       end
+      sleep QUOTA_EXCEEDED_RETRY_INTERVAL # if retrying, wait for a while before retrying.
       true
     end
 
@@ -198,7 +203,7 @@ module C2DM
 
     # log a exception in a useful way
     def self.log_exception ex, ex_collection
-      ex_collection << [:meg => ex.to_s, :trace => ex.backtrace]
+      ex_collection << {:msg => ex.to_s, :trace => ex.backtrace}
     end
   end
 end
