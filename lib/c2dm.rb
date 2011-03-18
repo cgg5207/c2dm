@@ -128,7 +128,7 @@ module C2DM
       result
     end
 
-    # Handle a Timeout Exception, return true if successfully handled, false if not.
+    # Handle a general Exception, return true if successfully handled, false if not.
     # right now we always return false
     def self.handle_exception ex, exceptions, counts
       log_exception ex, exceptions
