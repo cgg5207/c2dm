@@ -133,7 +133,7 @@ module C2DM
     def self.handle_exception ex, exceptions, counts
       log_exception ex, exceptions
       counts[:exception_count] = counts[:exception_count] +1
-      C2DM::C2dmLogger.log.fatal "FATAL Unhandled Exception, giving up [exception:#{ex} backtrace: #{ex.backtrace}]"
+      C2DM::C2dmLogger.log.fatal "FATAL Unhandled Exception, giving up [#{ex.class.to_s}, exception:#{ex} backtrace: #{ex.backtrace}]"
       false
     end
 
@@ -143,9 +143,9 @@ module C2DM
       log_exception ex, exceptions
       counts[:timeout_count] = counts[:timeout_count] +1
       counts[:timeout_count_consecative] = counts[:timeout_count_consecative] +1
-      C2DM::C2dmLogger.log.warn "Timeout::Error retrying [count:#{counts[:timeout_count_consecative]}, exception:#{ex} backtrace: #{ex.backtrace}]"
+      C2DM::C2dmLogger.log.warn "#{ex.class.to_s} retrying [count:#{counts[:timeout_count_consecative]}, exception:#{ex} backtrace: #{ex.backtrace}]"
       if counts[:timeout_count_consecative] == MAX_RETRIES_FOR_TIMEOUT_EX + 1 # max retries = X, so break if this is the 4th time
-        C2DM::C2dmLogger.log.fatal "FATAL Timeout::Error, giving up [count:#{counts[:timeout_count_consecative]}, exception:#{ex} backtrace: #{ex.backtrace}]"
+        C2DM::C2dmLogger.log.fatal "FATAL Timeout::Error/Timeout::ExitException, giving up [count:#{counts[:timeout_count_consecative]}, #{ex.class.to_s}, exception:#{ex} backtrace: #{ex.backtrace}]"
         return false
       end
       true
@@ -158,10 +158,10 @@ module C2DM
       counts[:quota_exceeded_count] = counts[:quota_exceeded_count] +1
       counts[:quota_exceeded_count_consecative] = counts[:quota_exceeded_count_consecative] +1
 
-      C2DM::C2dmLogger.log.warn "C2DM::QuotaExceededException retrying after #{QUOTA_EXCEEDED_RETRY_INTERVAL} seconds [count:#{counts[:quota_exceeded_count_consecative]}, exception:#{ex} backtrace: #{ex.backtrace}]"
+      C2DM::C2dmLogger.log.warn "C2DM::QuotaExceededException retrying after #{QUOTA_EXCEEDED_RETRY_INTERVAL} seconds [count:#{counts[:quota_exceeded_count_consecative]}, #{ex.class.to_s}, exception:#{ex} backtrace: #{ex.backtrace}]"
 
       if counts[:quota_exceeded_count_consecative] == MAX_RETRIES_FOR_QUOTA_EXCEEDED_EX + 1 # max retries = X, so break if this is the (X+1)th time
-        C2DM::C2dmLogger.log.fatal "FATAL C2DM::QuotaExceededException, giving up [count:#{counts[:quota_exceeded_count_consecative]}, exception:#{ex} backtrace: #{ex.backtrace}]"
+        C2DM::C2dmLogger.log.fatal "FATAL C2DM::QuotaExceededException, giving up [count:#{counts[:quota_exceeded_count_consecative]}, #{ex.class.to_s}, exception:#{ex} backtrace: #{ex.backtrace}]"
         return false
       end
       sleep QUOTA_EXCEEDED_RETRY_INTERVAL # if retrying, wait for a while before retrying.
@@ -203,7 +203,9 @@ module C2DM
 
     # log a exception in a useful way
     def self.log_exception ex, ex_collection
-      ex_collection << {:msg => ex.to_s, :trace => ex.backtrace}
+      entry={:ex_type => ex.class, :msg => ex.to_s, :trace => ex.backtrace}
+      C2DM::C2dmLogger.log.warn entry.to_s
+      ex_collection << entry
     end
   end
 end
