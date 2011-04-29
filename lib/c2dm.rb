@@ -111,7 +111,7 @@ module C2DM
           break # everything seems to have worked out fine. break!
         rescue C2DM::QuotaExceededException => ex
           break unless handle_quota_exceeded_exception ex, exceptions, counts
-        rescue Timeout::Error => ex
+        rescue Timeout::Error, Timeout::ExitException => ex
           break unless handle_timeout_exception ex, exceptions, counts
         rescue Exception => ex
           break unless handle_exception ex, exceptions, counts
