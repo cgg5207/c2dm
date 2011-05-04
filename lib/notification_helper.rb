@@ -19,7 +19,7 @@ module NotificationHelper
   def parse_push_response httparty_response
     result = {
         :response => parse_response(httparty_response), # parse_response gives => ex:- Error=NotRegistered
-        :http_status_code => httparty_response.response
+        :http_status_code => httparty_response.response.code # ie: 200 if sucessful
     }
 
     C2DM::C2dmLogger.log.debug "parse_response [#{result}]"
