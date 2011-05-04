@@ -206,6 +206,56 @@ describe C2DM::Push do
         end
       end
 
+      describe "Timeout::ExitException" do
+        it "should retry sending notifications" do
+          push_instance = double()
+          @post_count = 0
+          push_instance.stub(:send_notification_with_kv_map){
+            @post_count = @post_count + 1
+            if @post_count == 3 # 3rd time
+              raise Timeout::ExitException.new
+            else
+              "test_output_for_post"
+            end
+          }.exactly(7).times
+
+          @timeout_count = 0
+          @push.should_receive(:handle_timeout_exception) {
+            if (@timeout_count = @timeout_count + 1) == 3 # 3rd time
+              false
+            else
+              true
+            end
+          }
+          @push.should_receive(:clear_consecative_error_counts).exactly(7).times
+          @push.should_receive(:manage_counts).exactly(7).times
+          @push.should_receive(:process_response).exactly(7).times
+          @push.should_receive(:new){ push_instance }.exactly(2).times
+
+          @push.send_notifications_with_kv_map("username", "password", "source", @notifications)
+        end
+
+        it "should give up after retrying for X times" do
+          push_instance = double()
+          @post_count = 0
+          push_instance.stub(:send_notification_with_kv_map){
+            raise Timeout::ExitException.new
+          }.exactly(7).times
+
+          @timeout_count = 0
+          @push.should_receive(:handle_timeout_exception) {
+            if (@timeout_count = @timeout_count + 1) == 3 # 3rd time
+              false
+            else
+              true
+            end
+          }.exactly(3).times
+          @push.should_receive(:new){ push_instance }.exactly(3).times
+
+          @push.send_notifications_with_kv_map("username", "password", "source", @notifications)
+        end
+      end
+
       describe "Exception" do
         it "should give up when a unknown exception occur" do
           push_instance = double()
