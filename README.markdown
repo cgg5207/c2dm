@@ -1,3 +1,5 @@
+##This document is OUT OF DATE and the API have changed significantly. It will be updated in the near future.
+
 # c2dm
 
 c2dm sends push notifications to Android devices via google [c2dm](http://code.google.com/android/c2dm/index.html).
