@@ -55,8 +55,6 @@ module C2DM
       ready_and_queue_requests notifications, hydra=i_can_haz_hydra
       hydra.run
 
-#      retry_quota_exceeded_notifications
-#      retry_timeout_notifications
       retry_notifications :quota_exceeded
       retry_notifications :timeouts
 
@@ -68,30 +66,6 @@ module C2DM
       puts request_to_notification_map
       stats
     end
-
-#    def retry_quota_exceeded_notifications
-#      retries = 1
-#      while retries <= 3 && notifications_to_retry[:quota_exceeded].count > 0
-#        retries += 1
-#        puts retries
-#        ready_and_queue_requests(notifications_to_retry[:quota_exceeded], hydra=i_can_haz_hydra)
-#        notifications_to_retry[:quota_exceeded].clear
-#        stats[:quota_exceeded].clear
-#        hydra.run
-#      end
-#    end
-#
-#    def retry_timeout_notifications
-#      retries = 1
-#      while retries <= 3 && notifications_to_retry[:timeouts].count > 0
-#        retries += 1
-#        puts retries
-#        ready_and_queue_requests(notifications_to_retry[:timeouts], hydra=i_can_haz_hydra)
-#        notifications_to_retry[:timeouts].clear
-#        stats[:timeouts].clear
-#        hydra.run
-#      end
-#    end
 
     def retry_notifications collection, max_retries=3
       retries = 0
