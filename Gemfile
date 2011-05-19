@@ -7,6 +7,7 @@ source "http://rubygems.org"
 # Include everything needed to run rake, tests, features, etc.
 gem "httparty", "0.6.1"
 gem "awesome_print"
+gem "typhoeus", "0.2.4"
 
 group :development do
   gem "shoulda", ">= 0"
