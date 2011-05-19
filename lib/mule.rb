@@ -14,6 +14,8 @@ module C2DM
     attr_accessor :stats, :notifications_to_retry, :request_to_notification_map
 
     def initialize(username, password, source)
+      log.debug "Starting new Mule Instance"
+
       self.stats={
           :responses => [],
           :unknown_errors => [],
@@ -54,9 +56,13 @@ module C2DM
                                  }
           )
       )
+
+      log.info "Got auth token: #{@auth_token}"
     end
 
     def schieben notifications
+      log.info "Start sending #{notifications.count} notifications"
+
       ready_and_queue_requests notifications, hydra=i_can_haz_hydra
       hydra.run
 
@@ -68,18 +74,18 @@ module C2DM
       stats[:counts][:total] = notifications.count
       stats[:time][:average] = stats[:time][:total]/stats[:time][:no_of_responses]
 
-      puts "done"
-      puts stats
+      log.info "Notification Sending done. Stats will follow..."
+      log.info stats.inspect
       stats
     end
 
     def retry_notifications collection, max_retries=3
-      puts "retry_notifications #{collection.to_s}"
-      puts notifications_to_retry[collection].inspect
+      log.info "retry_notifications #{collection.to_s}"
+      log.info notifications_to_retry[collection].inspect
       retries = 0
       while retries < max_retries && notifications_to_retry[collection].count > 0
         retries += 1
-        puts retries
+        log.info "Retry: #{retries}"
         ready_and_queue_requests(notifications_to_retry[collection], hydra=i_can_haz_hydra)
         notifications_to_retry[collection].clear
         stats[collection].clear
@@ -90,6 +96,7 @@ module C2DM
     end
 
     def ready_and_queue_requests notifications_col, hydra
+      log.info "ready_and_queue_requests"
       notifications_col.each do |notification|
         (
           request = Typhoeus::Request.new(
@@ -113,6 +120,7 @@ module C2DM
               )
               notifications_to_retry[:quota_exceeded] << request_to_notification_map[response.request]
               build_status :quota_exceeded, response, true, false, QuotaExceededException
+              log.warn "Quota Exceeded. Notificaton: #{request_to_notification_map[response.request]}"
             else
               build_status(:responses, response, is_error, false, if(is_error)
                                                                     response.body.gsub(ERROR_STRING, "")
@@ -124,16 +132,17 @@ module C2DM
           elsif response.timed_out?
             notifications_to_retry[:timeouts] << request_to_notification_map[response.request]
             build_status :timeouts, response, true, true, response.curl_error_message
-            # aw hell no
-            #log("got a time out")
+            log.warn "Timeout. Curl Error: #{response.curl_error_message} Notificaton: #{request_to_notification_map[response.request]}"
           elsif response.code == 0
             build_status :unknown_errors, response, true, false, response.curl_error_message
             # Could not get an http response, something is wrong.
             #log(response.curl_error_message)
+            log.warn "Could not get a http response. Curl Error: #{response.curl_error_message} Notificaton: #{request_to_notification_map[response.request]}"
           else
             build_status :responses, response, true, false, response.body.gsub(ERROR_STRING, "")
             # Received a non-successful http response.
             #log("HTTP request failed: " + response.code.to_s)
+            log.warn "HTTP request failed: #{response.code.to_s} Request body: #{response.body} Notificaton: #{request_to_notification_map[response.request]}"
           end
         end
 

@@ -4,6 +4,10 @@ require "typhoeus"
 # This module contains a number of helper methods used for sending c2dm notifications
 module MuleNotificationHelper
 
+  def log
+    C2DM::C2dmLogger.log
+  end
+
   def i_can_haz_hydra
     Typhoeus::Hydra.new(:max_concurrency => 50)
   end
