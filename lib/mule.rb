@@ -10,19 +10,29 @@ module C2DM
   class Mule
     include MuleNotificationHelper
 
-    attr_accessor :stats, :request_to_token_map
+    attr_accessor :stats, :notifications_to_retry, :request_to_notification_map
 
     def initialize(username, password, source)
       self.stats={
           :responses => [],
           :unknown_errors => [],
           :timeouts => [],
+          :quota_exceeded => [],
           :counts => {
-              :successes => 0
+              :successes => 0,
+              :retries => {
+                  :quota_exceeded => 0,
+                  :timeouts => 0
+              }
           }
       }
 
-      self.request_to_token_map={}
+      self.notifications_to_retry={
+          :quota_exceeded => [],
+          :timeouts => []
+      }
+
+      self.request_to_notification_map={}
 
       get_auth_token username, password, source
     end
@@ -42,17 +52,59 @@ module C2DM
     end
 
     def schieben notifications
-      hydra = Typhoeus::Hydra.new(:max_concurrency => 2)
-      ready_and_queue_requests notifications, hydra
+      ready_and_queue_requests notifications, hydra=i_can_haz_hydra
       hydra.run
+
+#      retry_quota_exceeded_notifications
+#      retry_timeout_notifications
+      retry_notifications :quota_exceeded
+      retry_notifications :timeouts
 
       stats[:counts][:successes] = stats[:responses].count { |r| !r[:is_error] }
       stats[:counts][:failures] = notifications.count - stats[:counts][:successes]
       stats[:counts][:total] = notifications.count
       puts "done"
       puts stats
-      puts request_to_token_map
+      puts request_to_notification_map
       stats
+    end
+
+#    def retry_quota_exceeded_notifications
+#      retries = 1
+#      while retries <= 3 && notifications_to_retry[:quota_exceeded].count > 0
+#        retries += 1
+#        puts retries
+#        ready_and_queue_requests(notifications_to_retry[:quota_exceeded], hydra=i_can_haz_hydra)
+#        notifications_to_retry[:quota_exceeded].clear
+#        stats[:quota_exceeded].clear
+#        hydra.run
+#      end
+#    end
+#
+#    def retry_timeout_notifications
+#      retries = 1
+#      while retries <= 3 && notifications_to_retry[:timeouts].count > 0
+#        retries += 1
+#        puts retries
+#        ready_and_queue_requests(notifications_to_retry[:timeouts], hydra=i_can_haz_hydra)
+#        notifications_to_retry[:timeouts].clear
+#        stats[:timeouts].clear
+#        hydra.run
+#      end
+#    end
+
+    def retry_notifications collection, max_retries=3
+      retries = 0
+      while retries < max_retries && notifications_to_retry[collection].count > 0
+        retries += 1
+        puts retries
+        ready_and_queue_requests(notifications_to_retry[collection], hydra=i_can_haz_hydra)
+        notifications_to_retry[collection].clear
+        stats[collection].clear
+        hydra.run
+      end
+
+      stats[:counts][:retries][collection] += retries #remmber the total number of retries per collection (timeouts...etc)
     end
 
     def ready_and_queue_requests notifications, hydra
@@ -61,6 +113,7 @@ module C2DM
           request = Typhoeus::Request.new(
               PUSH_URL,
               :method => :post,
+              :timeout => 100, # milliseconds
               :body => "registration_id=#{n[:registration_id]}&collapse_key=foobar&#{self.get_data_string(n[:key_value_pairs])}",
               :headers => {
                   'Authorization' => "GoogleLogin auth=#{@auth_token}"
@@ -68,59 +121,39 @@ module C2DM
           )
         ).on_complete do |r|
           if r.success?
-            stats[:responses] << {
-                :registration_id => request_to_token_map[r.request],
-                :key_value_pairs => "",
-                :is_error => is_error=r.body.include?(ERROR_STRING),
-                :http_status_code => r.code,
-                :is_timeout? => false,
-                :description => if is_error
-                                  r.body.gsub(ERROR_STRING, "")
-                                else
-                                  r.body
-                                end
-            }
-          elsif r.timed_out?
-            stats[:timeouts] << {
-                :registration_id => request_to_token_map[r.request],
-                :key_value_pairs => "",
-                :is_timeout? => true,
-                :is_unknown_error => false,
-                :http_status_code => "",
-                :description => r.curl_error_message
-            }
+            # Quota Exceeded or not?
+            if is_error=r.body.include?(ERROR_STRING)
+              quota_exceeded=(r.body.gsub(ERROR_STRING, "") == QuotaExceededException)
+            end
 
+            if quota_exceeded
+              notifications_to_retry[:quota_exceeded] << request_to_notification_map[r]
+              build_status :quota_exceeded, r, true, r.code, false, QuotaExceededException
+            else
+              build_status(:responses, r, is_error, r.code, false, if(is_error)
+                                                                    r.body.gsub(ERROR_STRING, "")
+                                                                  else
+                                                                    r.body
+                                                                  end
+              )
+            end
+          elsif r.timed_out?
+            notifications_to_retry[:timeouts] << request_to_notification_map[r]
+            build_status :timeouts, r, true, r.code, true, r.curl_error_message
             # aw hell no
             log("got a time out")
           elsif r.code == 0
-            stats[:unknown_errors] << {
-                :registration_id => request_to_token_map[r.request],
-                :key_value_pairs => "",
-                :is_timeout? => false,
-                :is_unknown_error => true,
-                :http_status_code => "",
-                :description => r.curl_error_message
-            }
-
+            build_status :unknown_errors, r, true, r.code, false, r.curl_error_message
             # Could not get an http response, something's wrong.
             log(r.curl_error_message)
           else
-            stats[:responses] << {
-                :registration_id => request_to_token_map[r.request],
-                :key_value_pairs => "",
-                :is_timeout? => false,
-                :is_unknown_error => false,
-                :is_error => true,
-                :http_status_code => r.code,
-                :description => r.body
-            }
-
+            build_status :responses, r, true, r.code, false, r.body.gsub(ERROR_STRING, "")
             # Received a non-successful http response.
             log("HTTP request failed: " + r.code.to_s)
           end
         end
 
-        request_to_token_map[request] = n[:registration_id]
+        request_to_notification_map[request] = n
         hydra.queue request
       end
     end
