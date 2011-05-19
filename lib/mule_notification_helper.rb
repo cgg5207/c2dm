@@ -9,7 +9,9 @@ module MuleNotificationHelper
   end
 
   def i_can_haz_hydra
-    Typhoeus::Hydra.new(:max_concurrency => 50)
+    hydra=Typhoeus::Hydra.new(:max_concurrency => 50)
+    hydra.disable_memoization
+    hydra
   end
 
   def build_status collection, response, is_error, is_timeout, description
