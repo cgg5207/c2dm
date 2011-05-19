@@ -63,7 +63,6 @@ module C2DM
       stats[:counts][:total] = notifications.count
       puts "done"
       puts stats
-      puts request_to_notification_map
       stats
     end
 
@@ -81,53 +80,54 @@ module C2DM
       stats[:counts][:retries][collection] += retries #remmber the total number of retries per collection (timeouts...etc)
     end
 
-    def ready_and_queue_requests notifications, hydra
-      notifications.each do |n|
+    def ready_and_queue_requests notifications_col, hydra
+      notifications_col.each do |notification|
         (
           request = Typhoeus::Request.new(
               PUSH_URL,
               :method => :post,
               :timeout => 100, # milliseconds
-              :body => "registration_id=#{n[:registration_id]}&collapse_key=foobar&#{self.get_data_string(n[:key_value_pairs])}",
+              :body => "registration_id=#{notification[:registration_id]}&collapse_key=foobar&#{self.get_data_string(notification[:key_value_pairs])}",
               :headers => {
                   'Authorization' => "GoogleLogin auth=#{@auth_token}"
               }
           )
-        ).on_complete do |r|
-          if r.success?
+        ).on_complete do |response|
+          if response.success?
             # Quota Exceeded or not?
-            if is_error=r.body.include?(ERROR_STRING)
-              quota_exceeded=(r.body.gsub(ERROR_STRING, "") == QuotaExceededException)
-            end
-
-            if quota_exceeded
-              notifications_to_retry[:quota_exceeded] << request_to_notification_map[r]
-              build_status :quota_exceeded, r, true, r.code, false, QuotaExceededException
+            if (
+                is_error=response.body.include?(ERROR_STRING) &&
+                (
+                  response.body.gsub(ERROR_STRING, "") == QuotaExceededException
+                )
+              )
+              notifications_to_retry[:quota_exceeded] << request_to_notification_map[response]
+              build_status :quota_exceeded, response, true, response.code, false, QuotaExceededException
             else
-              build_status(:responses, r, is_error, r.code, false, if(is_error)
-                                                                    r.body.gsub(ERROR_STRING, "")
+              build_status(:responses, response, is_error, response.code, false, if(is_error)
+                                                                    response.body.gsub(ERROR_STRING, "")
                                                                   else
-                                                                    r.body
+                                                                    response.body
                                                                   end
               )
             end
-          elsif r.timed_out?
-            notifications_to_retry[:timeouts] << request_to_notification_map[r]
-            build_status :timeouts, r, true, r.code, true, r.curl_error_message
+          elsif response.timed_out?
+            notifications_to_retry[:timeouts] << request_to_notification_map[response]
+            build_status :timeouts, response, true, response.code, true, response.curl_error_message
             # aw hell no
             log("got a time out")
-          elsif r.code == 0
-            build_status :unknown_errors, r, true, r.code, false, r.curl_error_message
-            # Could not get an http response, something's wrong.
-            log(r.curl_error_message)
+          elsif response.code == 0
+            build_status :unknown_errors, response, true, response.code, false, response.curl_error_message
+            # Could not get an http response, something is wrong.
+            log(response.curl_error_message)
           else
-            build_status :responses, r, true, r.code, false, r.body.gsub(ERROR_STRING, "")
+            build_status :responses, response, true, response.code, false, response.body.gsub(ERROR_STRING, "")
             # Received a non-successful http response.
-            log("HTTP request failed: " + r.code.to_s)
+            log("HTTP request failed: " + response.code.to_s)
           end
         end
 
-        request_to_notification_map[request] = n
+        request_to_notification_map[request] = notification
         hydra.queue request
       end
     end
