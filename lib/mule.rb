@@ -104,8 +104,9 @@ module C2DM
         ).on_complete do |response|
           if response.success?
             # Quota Exceeded or not?
+            is_error=response.body.include?(ERROR_STRING)
             if (
-                is_error=response.body.include?(ERROR_STRING) &&
+                 is_error &&
                 (
                   response.body.gsub(ERROR_STRING, "") == QuotaExceededException
                 )
