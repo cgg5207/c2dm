@@ -8,15 +8,18 @@ module MuleNotificationHelper
     Typhoeus::Hydra.new(:max_concurrency => 50)
   end
 
-  def build_status collection, response, is_error, http_status_code, is_timeout, description
+  def build_status collection, response, is_error, is_timeout, description
     stats[collection] << {
                   :registration_id => request_to_notification_map[response.request][:registration_id],
                   :key_value_pairs => request_to_notification_map[response.request][:key_value_pairs],
                   :is_error => is_error,
-                  :http_status_code => http_status_code,
+                  :http_status_code => response.code,
                   :is_timeout? => is_timeout,
                   :description => description
               }
+
+    stats[:time][:total] += response.time
+    stats[:time][:no_of_responses] += 1
   end
 
   # Construct the html parameter, value string from the given map object

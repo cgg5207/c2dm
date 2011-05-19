@@ -1,5 +1,6 @@
 require "typhoeus"
 require "mule_notification_helper"
+require "c2dm_logger.rb"
 
 module C2DM
   AUTH_URL = 'https://www.google.com/accounts/ClientLogin'
@@ -18,6 +19,10 @@ module C2DM
           :unknown_errors => [],
           :timeouts => [],
           :quota_exceeded => [],
+          :time => {
+              :total => 0.0,
+              :no_of_responses => 0
+          },
           :counts => {
               :successes => 0,
               :retries => {
@@ -61,12 +66,16 @@ module C2DM
       stats[:counts][:successes] = stats[:responses].count { |r| !r[:is_error] }
       stats[:counts][:failures] = notifications.count - stats[:counts][:successes]
       stats[:counts][:total] = notifications.count
+      stats[:time][:average] = stats[:time][:total]/stats[:time][:no_of_responses]
+
       puts "done"
       puts stats
       stats
     end
 
     def retry_notifications collection, max_retries=3
+      puts "retry_notifications #{collection.to_s}"
+      puts notifications_to_retry[collection].inspect
       retries = 0
       while retries < max_retries && notifications_to_retry[collection].count > 0
         retries += 1
@@ -101,10 +110,10 @@ module C2DM
                   response.body.gsub(ERROR_STRING, "") == QuotaExceededException
                 )
               )
-              notifications_to_retry[:quota_exceeded] << request_to_notification_map[response]
-              build_status :quota_exceeded, response, true, response.code, false, QuotaExceededException
+              notifications_to_retry[:quota_exceeded] << request_to_notification_map[response.request]
+              build_status :quota_exceeded, response, true, false, QuotaExceededException
             else
-              build_status(:responses, response, is_error, response.code, false, if(is_error)
+              build_status(:responses, response, is_error, false, if(is_error)
                                                                     response.body.gsub(ERROR_STRING, "")
                                                                   else
                                                                     response.body
@@ -112,18 +121,18 @@ module C2DM
               )
             end
           elsif response.timed_out?
-            notifications_to_retry[:timeouts] << request_to_notification_map[response]
-            build_status :timeouts, response, true, response.code, true, response.curl_error_message
+            notifications_to_retry[:timeouts] << request_to_notification_map[response.request]
+            build_status :timeouts, response, true, true, response.curl_error_message
             # aw hell no
-            log("got a time out")
+            #log("got a time out")
           elsif response.code == 0
-            build_status :unknown_errors, response, true, response.code, false, response.curl_error_message
+            build_status :unknown_errors, response, true, false, response.curl_error_message
             # Could not get an http response, something is wrong.
-            log(response.curl_error_message)
+            #log(response.curl_error_message)
           else
-            build_status :responses, response, true, response.code, false, response.body.gsub(ERROR_STRING, "")
+            build_status :responses, response, true, false, response.body.gsub(ERROR_STRING, "")
             # Received a non-successful http response.
-            log("HTTP request failed: " + response.code.to_s)
+            #log("HTTP request failed: " + response.code.to_s)
           end
         end
 

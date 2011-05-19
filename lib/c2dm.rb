@@ -4,6 +4,7 @@ require "notification_helper.rb"
 require "c2dm_logger.rb"
 require "quota_exceeded_exception.rb"
 require "ap"
+require "mule"
 
 module C2DM
   # Main class with all notification sending methods.
