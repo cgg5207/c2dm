@@ -72,6 +72,7 @@ module C2DM
       stats[:counts][:successes] = stats[:responses].count { |r| !r[:is_error] }
       stats[:counts][:failures] = notifications.count - stats[:counts][:successes]
       stats[:counts][:total] = notifications.count
+      stats[:counts][:unknown_errors_count] = stats[:unknown_errors].count
       stats[:time][:average] = stats[:time][:total]/stats[:time][:no_of_responses]
 
       log.info "Notification Sending done. Stats will follow..."
