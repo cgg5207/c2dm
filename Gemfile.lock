@@ -11,6 +11,7 @@ GEM
       bundler (~> 1.0.0)
       git (>= 1.2.5)
       rake
+    mime-types (1.16)
     rake (0.8.7)
     rcov (0.9.9)
     rspec (2.5.0)
@@ -22,6 +23,9 @@ GEM
       diff-lcs (~> 1.1.2)
     rspec-mocks (2.5.0)
     shoulda (2.11.3)
+    typhoeus (0.2.4)
+      mime-types
+      mime-types
 
 PLATFORMS
   ruby
@@ -34,3 +38,4 @@ DEPENDENCIES
   rcov
   rspec
   shoulda
+  typhoeus (= 0.2.4)
