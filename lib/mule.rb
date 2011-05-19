@@ -103,7 +103,7 @@ module C2DM
           request = Typhoeus::Request.new(
               PUSH_URL,
               :method => :post,
-              :timeout => 100, # milliseconds
+              #:timeout => 100, # milliseconds
               :body => "registration_id=#{notification[:registration_id]}&collapse_key=foobar&#{self.get_data_string(notification[:key_value_pairs])}",
               :headers => {
                   'Authorization' => "GoogleLogin auth=#{@auth_token}"
