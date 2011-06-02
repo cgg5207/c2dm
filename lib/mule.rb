@@ -54,7 +54,8 @@ module C2DM
                                      'Content-type' => 'application/x-www-form-urlencoded',
                                      'Content-length' => "#{post_body.length}"
                                  },
-                                 :disable_ssl_peer_verification => true
+                                 :disable_ssl_peer_verification => true,
+                                 :disable_ssl_host_verification => true
           )
       )
 
@@ -109,7 +110,8 @@ module C2DM
               :headers => {
                   'Authorization' => "GoogleLogin auth=#{@auth_token}"
               },
-              :disable_ssl_peer_verification => true
+              :disable_ssl_peer_verification => true,
+              :disable_ssl_host_verification => true
           )
         ).on_complete do |response|
           if response.success?
