@@ -8,59 +8,82 @@ Gem::Specification.new do |s|
   s.version = "0.1.0"
 
   s.required_rubygems_version = Gem::Requirement.new(">= 0") if s.respond_to? :required_rubygems_version=
-  s.authors = ["Amro Mousa"]
-  s.date = %q{2010-12-06}
+  s.authors = ["Yasith Fernando", "Amro Mousa"]
+  s.date = %q{2011-06-02}
   s.description = %q{c2dm sends push notifications to Android devices via google c2dm.}
-  s.email = %q{amromousa@gmail.com}
+  s.email = %q{yasith@favoritemedium.com}
   s.extra_rdoc_files = [
     "LICENSE.txt",
     "README.markdown"
   ]
   s.files = [
     ".document",
+    ".rspec",
     "Gemfile",
     "Gemfile.lock",
     "LICENSE.txt",
     "README.markdown",
     "Rakefile",
     "VERSION",
+    "c2dm.gemspec",
     "lib/c2dm.rb",
-    "test/helper.rb",
-    "test/test_c2dm.rb"
+    "lib/c2dm_logger.rb",
+    "lib/mule.rb",
+    "lib/mule_notification_helper.rb",
+    "lib/notification_helper.rb",
+    "lib/quota_exceeded_exception.rb",
+    "spec/notification_helper_spec.rb",
+    "spec/push_spec.rb",
+    "spec/spec_helper.rb"
   ]
-  s.homepage = %q{http://github.com/amro/c2dm}
+  s.homepage = %q{https://github.com/favoritemedium/c2dm}
   s.licenses = ["MIT"]
   s.require_paths = ["lib"]
-  s.rubygems_version = %q{1.3.7}
+  s.rubygems_version = %q{1.6.2}
   s.summary = %q{c2dm sends push notifications to Android devices via google c2dm.}
   s.test_files = [
-    "test/helper.rb",
-    "test/test_c2dm.rb"
+    "spec/notification_helper_spec.rb",
+    "spec/push_spec.rb",
+    "spec/spec_helper.rb"
   ]
 
   if s.respond_to? :specification_version then
-    current_version = Gem::Specification::CURRENT_SPECIFICATION_VERSION
     s.specification_version = 3
 
     if Gem::Version.new(Gem::VERSION) >= Gem::Version.new('1.2.0') then
+      s.add_runtime_dependency(%q<httparty>, ["= 0.6.1"])
+      s.add_runtime_dependency(%q<awesome_print>, [">= 0"])
+      s.add_runtime_dependency(%q<typhoeus>, ["= 0.2.4"])
       s.add_development_dependency(%q<shoulda>, [">= 0"])
       s.add_development_dependency(%q<bundler>, ["~> 1.0.0"])
       s.add_development_dependency(%q<jeweler>, ["~> 1.5.1"])
       s.add_development_dependency(%q<rcov>, [">= 0"])
-      s.add_runtime_dependency(%q<httparty>, ["> 0.6.0"])
+      s.add_development_dependency(%q<rspec>, [">= 0"])
+      s.add_runtime_dependency(%q<httparty>, ["= 0.6.1"])
+      s.add_runtime_dependency(%q<typhoeus>, ["= 0.2.4"])
     else
+      s.add_dependency(%q<httparty>, ["= 0.6.1"])
+      s.add_dependency(%q<awesome_print>, [">= 0"])
+      s.add_dependency(%q<typhoeus>, ["= 0.2.4"])
       s.add_dependency(%q<shoulda>, [">= 0"])
       s.add_dependency(%q<bundler>, ["~> 1.0.0"])
       s.add_dependency(%q<jeweler>, ["~> 1.5.1"])
       s.add_dependency(%q<rcov>, [">= 0"])
-      s.add_dependency(%q<httparty>, ["> 0.6.0"])
+      s.add_dependency(%q<rspec>, [">= 0"])
+      s.add_dependency(%q<httparty>, ["= 0.6.1"])
+      s.add_dependency(%q<typhoeus>, ["= 0.2.4"])
     end
   else
+    s.add_dependency(%q<httparty>, ["= 0.6.1"])
+    s.add_dependency(%q<awesome_print>, [">= 0"])
+    s.add_dependency(%q<typhoeus>, ["= 0.2.4"])
     s.add_dependency(%q<shoulda>, [">= 0"])
     s.add_dependency(%q<bundler>, ["~> 1.0.0"])
     s.add_dependency(%q<jeweler>, ["~> 1.5.1"])
     s.add_dependency(%q<rcov>, [">= 0"])
-    s.add_dependency(%q<httparty>, ["> 0.6.0"])
+    s.add_dependency(%q<rspec>, [">= 0"])
+    s.add_dependency(%q<httparty>, ["= 0.6.1"])
+    s.add_dependency(%q<typhoeus>, ["= 0.2.4"])
   end
 end
 
