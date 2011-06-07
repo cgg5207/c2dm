@@ -120,11 +120,11 @@ module C2DM
             if (
                  is_error &&
                 (
-                  response.body.gsub(ERROR_STRING, "") == QuotaExceededException
+                  response.body.gsub(ERROR_STRING, "") == C2DM_QUOTA_EXCEEDED_ERROR_MESSAGE_DESCRIPTION
                 )
               )
               notifications_to_retry[:quota_exceeded] << request_to_notification_map[response.request]
-              build_status :quota_exceeded, response, true, false, QuotaExceededException
+              build_status :quota_exceeded, response, true, false, C2DM_QUOTA_EXCEEDED_ERROR_MESSAGE_DESCRIPTION
               log.warn "Quota Exceeded. Notificaton: #{request_to_notification_map[response.request]}"
             else
               build_status(:responses, response, is_error, false, if(is_error)
