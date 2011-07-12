@@ -8,7 +8,7 @@ module C2DM
 
     APP_NAME = "c2dm_lib"
     `mkdir -p log` # create a log directory if it does not exist
-    LOGGER_INSTANCE = Logger.new("log/#{APP_NAME}.log", 10, 1024000) # log to a file, limit to 1MB/(rotate) 10 files
+    LOGGER_INSTANCE = Logger.new("log/#{APP_NAME}.log", 1000, 1024000) # log to a file, limit to 1MB/(rotate) 1000 files
     #LOGGER_INSTANCE = Logger.new(STDOUT) # log to the std out
     LOGGER_INSTANCE.level = Logger::DEBUG
     C2DM_LOGGER_INSTANCE = C2dmLogger.new
