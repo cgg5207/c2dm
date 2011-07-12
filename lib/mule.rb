@@ -75,6 +75,8 @@ module C2DM
       stats[:counts][:failures] = notifications.count - stats[:counts][:successes]
       stats[:counts][:total] = notifications.count
       stats[:counts][:unknown_errors_count] = stats[:unknown_errors].count
+      #stats[:counts][:quota_exceeded] = stats[:quota_exceeded].count
+      #stats[:counts][:timeouts] = stats[:timeouts].count
       stats[:time][:average] = stats[:time][:total]/stats[:time][:no_of_responses]
 
       log.info "Notification Sending done. Stats will follow..."
@@ -85,6 +87,10 @@ module C2DM
     def retry_notifications collection, max_retries=3
       log.info "retry_notifications #{collection.to_s}"
       log.info notifications_to_retry[collection].inspect
+
+      log.info "updating failure stats for: #{collection.to_s}. (before we actually retry sending these notifications. which will destroy the current collection of failed notifications in the process)"
+      stats[:counts][collection] = stats[collection].count
+
       retries = 0
       while retries < max_retries && notifications_to_retry[collection].count > 0
         retries += 1
