@@ -21,6 +21,13 @@ module C2DM
     # redirect all calls to methods, to the logger instance
     def method_missing(m, *args, &block)
 	    LOGGER_INSTANCE.send(m, APP_NAME) {args[0]}
-	  end
+    end
+
+    def log_array title, array_to_log
+      info title
+      array_to_log.each do |item|
+        info item
+      end
+    end
   end
 end

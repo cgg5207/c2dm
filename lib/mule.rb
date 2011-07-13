@@ -68,6 +68,11 @@ module C2DM
       ready_and_queue_requests notifications, hydra=i_can_haz_hydra
       hydra.run
 
+      log.info "finish running hydra. Raw responses in stats[:responses]"
+      stats[:responses].each do |response|
+        log.info response.inspect
+      end
+
       retry_notifications :quota_exceeded
       retry_notifications :timeouts
 
@@ -80,7 +85,15 @@ module C2DM
       stats[:time][:average] = stats[:time][:total]/stats[:time][:no_of_responses]
 
       log.info "Notification Sending done. Stats will follow..."
-      log.info stats.inspect
+      log.info "Time: #{stats[:time].inspect}"
+      log.info "Counts: #{stats[:counts].inspect}"
+
+      log.log_array "Responses", stats[:responses]
+      log.log_array "Unknown Errors", stats[:unknown_errors]
+      log.log_array "Timeouts", stats[:timeouts]
+      log.log_array "Quota Exceeded", stats[:quota_exceeded]
+
+      #log.info stats.inspect
       stats
     end
 
