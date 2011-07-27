@@ -9,7 +9,7 @@ Gem::Specification.new do |s|
 
   s.required_rubygems_version = Gem::Requirement.new(">= 0") if s.respond_to? :required_rubygems_version=
   s.authors = ["Yasith Fernando", "Amro Mousa"]
-  s.date = %q{2011-06-02}
+  s.date = %q{2011-07-27}
   s.description = %q{c2dm sends push notifications to Android devices via google c2dm.}
   s.email = %q{yasith@favoritemedium.com}
   s.extra_rdoc_files = [
@@ -29,9 +29,11 @@ Gem::Specification.new do |s|
     "lib/c2dm.rb",
     "lib/c2dm_logger.rb",
     "lib/mule.rb",
-    "lib/mule_notification_helper_spec.rb",
+    "lib/mule_notification_helper.rb",
     "lib/notification_helper.rb",
     "lib/quota_exceeded_exception.rb",
+    "spec/mule_notification_helper_spec.rb",
+    "spec/mule_spec.rb",
     "spec/notification_helper_spec.rb",
     "spec/push_spec.rb",
     "spec/spec_helper.rb"
@@ -42,6 +44,8 @@ Gem::Specification.new do |s|
   s.rubygems_version = %q{1.6.2}
   s.summary = %q{c2dm sends push notifications to Android devices via google c2dm.}
   s.test_files = [
+    "spec/mule_notification_helper_spec.rb",
+    "spec/mule_spec.rb",
     "spec/notification_helper_spec.rb",
     "spec/push_spec.rb",
     "spec/spec_helper.rb"
