@@ -14,18 +14,18 @@ module MuleNotificationHelper
     hydra
   end
 
-  def build_status collection, response, is_error, is_timeout, description
-    stats[collection] << {
-                  :registration_id => request_to_notification_map[response.request][:registration_id],
-                  :key_value_pairs => request_to_notification_map[response.request][:key_value_pairs],
+  def build_status collection, response, is_error, is_timeout, description, stats_map=stats, r_to_n_map=request_to_notification_map
+    stats_map[collection] << {
+                  :registration_id => r_to_n_map[response.request][:registration_id],
+                  :key_value_pairs => r_to_n_map[response.request][:key_value_pairs],
                   :is_error => is_error,
                   :http_status_code => response.code,
                   :is_timeout? => is_timeout,
                   :description => description
               }
 
-    stats[:time][:total] += response.time
-    stats[:time][:no_of_responses] += 1
+    stats_map[:time][:total] += response.time
+    stats_map[:time][:no_of_responses] += 1
   end
 
   # Construct the html parameter, value string from the given map object

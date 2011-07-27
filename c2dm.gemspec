@@ -29,7 +29,7 @@ Gem::Specification.new do |s|
     "lib/c2dm.rb",
     "lib/c2dm_logger.rb",
     "lib/mule.rb",
-    "lib/mule_notification_helper.rb",
+    "lib/mule_notification_helper_spec.rb",
     "lib/notification_helper.rb",
     "lib/quota_exceeded_exception.rb",
     "spec/notification_helper_spec.rb",
