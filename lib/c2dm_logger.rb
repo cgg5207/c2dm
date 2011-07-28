@@ -11,7 +11,7 @@ module C2DM
     LOGGER_INSTANCE = Logger.new("log/#{APP_NAME}.log", 1000, 1024000) # log to a file, limit to 1MB/(rotate) 1000 files
     #LOGGER_INSTANCE = Logger.new(STDOUT) # log to the std out
     LOGGER_INSTANCE.level = Logger::DEBUG
-    LOGGER_INSTANCE.datetime_format = "%Y-%m-%d %H:%M:%S"
+    #LOGGER_INSTANCE.datetime_format = "%Y-%m-%d %H:%M:%S"
     C2DM_LOGGER_INSTANCE = C2dmLogger.new
 
     # get the logger instance
@@ -30,10 +30,6 @@ module C2DM
       array_to_log.each do |item|
         info item
       end
-    end
-
-    def test
-      LOGGER_INSTANCE.info "this is a test"
     end
   end
 end
